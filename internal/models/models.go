@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"time"
+	"sync"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -60,8 +61,40 @@ func (t *Transaction) Fail() {
 	t.Status = "FAILED"
 }
 
+
 type Balance struct {
 	UserID        int64     `json:"user_id"`
 	Amount        float64   `json:"amount"`
 	LastUpdatedAt time.Time `json:"last_updated_at"`
+	mu sync.RWMutex `json:"-"`
+}
+
+func (b *Balance) Deposit(amount float64) {
+	b.mu.Lock()
+	
+	defer b.mu.Unlock()
+
+	b.Amount += amount
+	b.LastUpdatedAt = time.Now()
+}
+
+func (b *Balance) Withdraw(amount float64) bool {
+	b.mu.Lock()         
+	defer b.mu.Unlock() 
+
+	if b.Amount < amount {
+		return false
+	}
+
+	b.Amount -= amount
+	b.LastUpdatedAt = time.Now()
+	return true
+}
+
+func (b *Balance) GetCurrent() float64 {
+
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.Amount
 }
